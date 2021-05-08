@@ -1,0 +1,7 @@
+[
+    {
+    "command": "gcc -Wp,-MMD,arch/x86/boot/.cpuflags.o.d -nostdinc -isystem /usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include -I/usr/local/src/linux-zen/src/zen-kernel/arch/x86/include -I/usr/local/src/linux-zen/src/zen-kernel/arch/x86/include/generated  -I/usr/local/src/linux-zen/src/zen-kernel/include -I/usr/local/src/linux-zen/src/zen-kernel/arch/x86/include/uapi -I/usr/local/src/linux-zen/src/zen-kernel/arch/x86/include/generated/uapi -I/usr/local/src/linux-zen/src/zen-kernel/include/uapi -I/usr/local/src/linux-zen/src/zen-kernel/include/generated/uapi -include /usr/local/src/linux-zen/src/zen-kernel/include/linux/compiler-version.h -include /usr/local/src/linux-zen/src/zen-kernel/include/linux/kconfig.h -include /usr/local/src/linux-zen/src/zen-kernel/include/linux/compiler_types.h -D__KERNEL__ -fmacro-prefix-map=/usr/local/src/linux-zen/src/zen-kernel/= -m16 -g -Os -DDISABLE_BRANCH_PROFILING -Wall -Wstrict-prototypes -march=i386 -mregparm=3 -fno-strict-aliasing -fomit-frame-pointer -fno-pic -mno-mmx -mno-sse -fcf-protection=none -ffreestanding -fno-stack-protector -Wno-address-of-packed-member -mpreferred-stack-boundary=2 -D_SETUP -fmacro-prefix-map=/usr/local/src/linux-zen/src/zen-kernel/= -fno-asynchronous-unwind-tables -fno-builtin -DKBUILD_MODFILE='\"scull\"' -DKBUILD_MODNAME='\"scull\"' /home/kajetan/Development/kernel-modules/ldd3/scull/main.c",
+    "directory": "/home/kajetan/Development/kernel-modules/ldd3/scull",
+    "file": "/home/kajetan/Development/kernel-modules/ldd3/scull/main.c"
+  }
+]

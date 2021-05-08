@@ -47,6 +47,7 @@
 *.cmd
 .tmp_versions/
 modules.order
+.ccls-cache/
 Module.symvers
 Mkfile.old
 dkms.conf
