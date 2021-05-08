@@ -20,14 +20,44 @@ module_param(scull_nr_devs, int, S_IRUGO);
 MODULE_AUTHOR("Kajetan Puchalski");
 MODULE_LICENSE("Dual BSD/GPL");
 
+/* empty the scull device */
+/* has to be called when the device semaphore is held */
+int scull_trim(struct scull_dev *dev)
+{
+    /* TODO: implement */
+    return 0;
+}
+
+/* open the device file */
+int scull_open(struct inode *inode, struct file *filp)
+{
+    /* device informatino */
+    struct scull_dev *dev = container_of(inode->i_cdev, struct scull_dev, cdev);
+    filp->private_data = dev;
+
+    /* trime the device length to 0 if opened write-only */
+    if ((filp->f_flags & O_ACCMODE) == O_WRONLY) {
+        if (mutex_lock_interruptible(&dev->lock))
+            return -ERESTARTSYS;
+        scull_trim(dev);
+        mutex_unlock(&dev->lock);
+    }
+    return 0;
+}
+
+int scull_release(struct inode *inode, struct file *filp)
+{
+    return 0;
+}
+
 struct file_operations scull_fops = {
     .owner = THIS_MODULE,
     .llseek = NULL,
     .read = NULL,
     .write = NULL,
     .unlocked_ioctl = NULL,
-    .open = NULL,
-    .release = NULL,
+    .open = scull_open,
+    .release = scull_release,
 };
 
 static void scull_setup_cdev(struct scull_dev *dev, int index)
