@@ -11,6 +11,14 @@
 #define SCULL_NR_DEVS 4
 #endif
 
+#ifndef SCULL_QUANTUM
+#define SCULL_QUANTUM 4000
+#endif
+
+#ifndef SCULL_QSET
+#define SCULL_QSET 1000
+#endif
+
 /* Scull quantum sets */
 struct scull_qset {
     void **data;
