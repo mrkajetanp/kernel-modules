@@ -5,9 +5,14 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <linux/cdev.h>
 
+#include <linux/uaccess.h>
+
 #include "scull.h"
+#include "proc_ops_version.h"
 
 /*
 ** Parameters which can be set at load time
@@ -56,6 +61,150 @@ int scull_trim(struct scull_dev *dev)
 
     return 0;
 }
+
+/* #ifdef SCULL_DEBUG // use proc only in debug mode */
+
+/*
+** proc filesystem for debugging
+*/
+int scull_read_procmem(struct seq_file *s, void *v)
+{
+    int i, j;
+    int limit = s->size - 80;
+
+    for (i = 0; i < scull_nr_devs && s->count <= limit; i++) {
+        struct scull_dev *d = &scull_devices[i];
+        struct scull_qset *qs = d->data;
+
+        if (mutex_lock_interruptible(&d->lock))
+            return -ERESTARTSYS;
+
+        seq_printf(s, "\nDevice %i: qset %i, q %i, sz %li\n",
+                   i, d->qset, d->quantum, d->size);
+        for (; qs && s->count <= limit; qs = qs->next) {
+            seq_printf(s, " item at %p, qset at %p\n", qs, qs->data);
+            if (qs->data && !qs->next)
+                for (j = 0 ; j < d->qset; j++) {
+                    if (qs->data[j])
+                        seq_printf(s, "   % 4i: %8p\n", j, qs->data[j]);
+                }
+        }
+
+        mutex_unlock(&d->lock);
+    }
+
+    return 0;
+}
+
+/*
+** sequence iteration methods
+** *pos = scull device number
+*/
+static void *scull_seq_start(struct seq_file *s, loff_t *pos)
+{
+    if (*pos >= scull_nr_devs)
+        return NULL;
+    return scull_devices + *pos;
+}
+
+static void *scull_seq_next(struct seq_file *s, void *v, loff_t *pos)
+{
+    (*pos)++;
+    if (*pos >= scull_nr_devs)
+        return NULL;
+    return scull_devices + *pos;
+}
+
+static void scull_seq_stop(struct seq_file *s, void *v)
+{
+    /* nothing to do */
+}
+
+static int scull_seq_show(struct seq_file *s, void *v)
+{
+    struct scull_dev *dev = (struct scull_dev*) v;
+    struct scull_qset *d;
+    int i;
+
+    if (mutex_lock_interruptible(&dev->lock))
+        return -ERESTARTSYS;
+    seq_printf(s, "\nDevice %i: qset %i, q %i, sz %li\n",
+               (int)(dev - scull_devices), dev->qset, dev->quantum, dev->size);
+    for (d = dev->data; d; d = d->next) {
+        seq_printf(s, " item at %p, qset at %p\n", d, d->data);
+        if (d->data && !d->next)
+            for (i = 0 ; i < dev->qset; i++) {
+                if (d->data[i])
+                    seq_printf(s, "   % 4i: %8p\n", i, d->data[i]);
+            }
+    }
+    mutex_unlock(&dev->lock);
+
+    return 0;
+}
+
+/*
+** connect the sequence operators
+*/
+
+static struct seq_operations scull_seq_ops = {
+    .start = scull_seq_start,
+    .next = scull_seq_next,
+    .stop = scull_seq_stop,
+    .show = scull_seq_show
+};
+
+/*
+** open method sets up the sequence operators
+*/
+static int scullmem_proc_open(struct inode *inode, struct file *file)
+{
+    return single_open(file, scull_read_procmem, NULL);
+}
+
+static int scullseq_proc_open(struct inode *inode, struct file *file)
+{
+    return seq_open(file, &scull_seq_ops);
+}
+
+/*
+** Set of file operations for proc files
+*/
+static struct file_operations scullmem_proc_ops = {
+    .owner = THIS_MODULE,
+    .open = scullmem_proc_open,
+    .read = seq_read,
+    .llseek = seq_lseek,
+    .release = single_release
+};
+
+static struct file_operations scullseq_proc_ops = {
+    .owner = THIS_MODULE,
+    .open = scullseq_proc_open,
+    .read = seq_read,
+    .llseek = seq_lseek,
+    .release = seq_release
+};
+
+/*
+** Actually create/remove the /proc files
+*/
+static void scull_create_proc(void)
+{
+    proc_create_data("scullmem", 0, NULL,
+                     proc_ops_wrapper(&scullmem_proc_ops, scullmem_pops), NULL);
+    proc_create("scullseq", 0, NULL,
+                     proc_ops_wrapper(&scullseq_proc_ops, scullmem_pops));
+}
+
+static void scull_remove_proc(void)
+{
+    remove_proc_entry("scullmem", NULL);
+    remove_proc_entry("scullseq", NULL);
+}
+
+/* #endif // SCULL_DEBUG */
+
 
 struct scull_qset *scull_follow(struct scull_dev *dev, int n)
 {
@@ -235,6 +384,8 @@ void scull_cleanup_module(void)
         kfree(scull_devices);
    }
 
+    scull_remove_proc();
+
     /* cleanup_module never called if registering failed */
     unregister_chrdev_region(devno, scull_nr_devs);
 }
@@ -284,6 +435,8 @@ int scull_init_module(void)
         mutex_init(&scull_devices[i].lock);
         scull_setup_cdev(&scull_devices[i], i);
     }
+
+    scull_create_proc();
 
     return 0;
 
