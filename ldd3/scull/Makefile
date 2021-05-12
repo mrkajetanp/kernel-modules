@@ -1,4 +1,17 @@
 
+DEBUG = y
+
+ifeq ($(DEBUG),y)
+	DEBFLAGS = -O -g -DSCULL_DEBUG
+else
+	DEBFLAGS = -O2
+endif
+
+LDDINC=$(PWD)/../include
+
+EXTRA_CFLAGS += $(DEBFLAGS)
+EXTRA_CFLAGS += -I$(LDDINC)
+
 ifneq ($(KERNELRELEASE),)
 
 scull-objs := main.o

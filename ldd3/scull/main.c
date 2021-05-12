@@ -1,3 +1,19 @@
+/*
+ * main.c -- the bare scull char module
+ *
+ * Copyright (C) 2001 Alessandro Rubini and Jonathan Corbet
+ * Copyright (C) 2001 O'Reilly & Associates
+ *
+ * The source code in this file can be freely used, adapted,
+ * and redistributed in source or binary form, so long as an
+ * acknowledgment appears in derived source files.  The citation
+ * should list that the code comes from the book "Linux Device
+ * Drivers" by Alessandro Rubini and Jonathan Corbet, published
+ * by O'Reilly & Associates.   No warranty is attached;
+ * we cannot take responsibility for errors or fitness for use.
+ *
+ */
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -13,6 +29,9 @@
 
 #include "scull.h"
 #include "proc_ops_version.h"
+
+#ifdef SCULL_DEBUG
+#endif
 
 /*
 ** Parameters which can be set at load time
@@ -360,12 +379,24 @@ int scull_release(struct inode *inode, struct file *filp)
     return 0;
 }
 
+/*
+** ioctl() implementation
+ */
+
+long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    int err = 0, tmp;
+    int retval = 0;
+
+    return retval;
+}
+
 struct file_operations scull_fops = {
     .owner = THIS_MODULE,
     .llseek = NULL,
     .read = scull_read,
     .write = scull_write,
-    .unlocked_ioctl = NULL,
+    .unlocked_ioctl = scull_ioctl,
     .open = scull_open,
     .release = scull_release,
 };
