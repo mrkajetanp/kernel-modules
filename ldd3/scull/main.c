@@ -30,9 +30,6 @@
 #include "scull.h"
 #include "proc_ops_version.h"
 
-#ifdef SCULL_DEBUG
-#endif
-
 /*
 ** Parameters which can be set at load time
 */
@@ -81,7 +78,7 @@ int scull_trim(struct scull_dev *dev)
     return 0;
 }
 
-/* #ifdef SCULL_DEBUG // use proc only in debug mode */
+#ifdef SCULL_DEBUG // use proc only in debug mode
 
 /*
 ** proc filesystem for debugging
@@ -111,6 +108,11 @@ int scull_read_procmem(struct seq_file *s, void *v)
 
         mutex_unlock(&d->lock);
     }
+
+    seq_printf(s, "\nSCULL_IOCQQUANTUM: %i\n", SCULL_IOCQQUANTUM);
+    seq_printf(s, "SCULL_IOCQQSET: %i\n", SCULL_IOCQQSET);
+    seq_printf(s, "SCULL_IOCTQUANTUM: %i\n", SCULL_IOCTQUANTUM);
+    seq_printf(s, "SCULL_IOCTQSET: %i\n", SCULL_IOCTQSET);
 
     return 0;
 }
@@ -222,7 +224,7 @@ static void scull_remove_proc(void)
     remove_proc_entry("scullseq", NULL);
 }
 
-/* #endif // SCULL_DEBUG */
+#endif // SCULL_DEBUG
 
 
 struct scull_qset *scull_follow(struct scull_dev *dev, int n)
@@ -387,6 +389,97 @@ long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
     int err = 0, tmp;
     int retval = 0;
+
+    /*
+    ** extract the type and number bitfields
+    ** wrong cmds: return ENOTTY (invalid ioctl) before access_ok()
+     */
+    if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
+    if (_IOC_NR(cmd) > SCULL_IOC_MAXNR) return -ENOTTY;
+
+     /*
+     ** direction is a bitmask
+     ** 'type' is user-oriented, acces_ok is kernel-oriented
+     ** the concept of read and write is reversed
+      */
+    if (_IOC_DIR(cmd) & _IOC_READ)
+        err = !access_ok((void __user*)arg, _IOC_SIZE(cmd));
+    else if (_IOC_DIR(cmd) & _IOC_WRITE)
+        err = !access_ok((void __user*)arg, _IOC_SIZE(cmd));
+    if (err) return -EFAULT;
+
+    switch (cmd) {
+        case SCULL_IOCRESET:
+            scull_quantum = SCULL_QUANTUM;
+            scull_qset = SCULL_QSET;
+            break;
+
+        case SCULL_IOCSQUANTUM: /* set, arg points to the value */
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            retval = __get_user(scull_quantum, (int __user*)arg);
+            break;
+
+        case SCULL_IOCTQUANTUM: /* tell, arg is the value */
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            scull_quantum = arg;
+            break;
+
+        case SCULL_IOCGQUANTUM: /* get, arg points to result */
+            retval = __put_user(scull_quantum, (int __user*)arg);
+            break;
+
+        case SCULL_IOCQQUANTUM: /* query, return it */
+            return scull_quantum;
+
+        case SCULL_IOCXQUANTUM: /* exchange, use arg as pointer */
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            tmp = scull_quantum;
+            retval = __get_user(scull_quantum, (int __user*)arg);
+            if (retval == 0)
+                retval = __put_user(tmp, (int __user*)arg);
+            break;
+
+        case SCULL_IOCHQUANTUM: /* shift: tell + query */
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            tmp = scull_quantum;
+            scull_quantum = arg;
+            return tmp;
+
+        case SCULL_IOCSQSET:
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            retval = __get_user(scull_qset, (int __user*)arg);
+            break;
+
+        case SCULL_IOCTQSET:
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            scull_qset = arg;
+            break;
+
+        case SCULL_IOCQQSET:
+            return scull_qset;
+
+        case SCULL_IOCXQSET:
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            tmp = scull_qset;
+            retval = __get_user(scull_qset, (int __user*)arg);
+            if (retval == 0)
+                retval = __put_user(tmp, (int __user*)arg);
+            break;
+
+        case SCULL_IOCHQSET:
+            if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+            tmp = scull_qset;
+            scull_qset = arg;
+            return tmp;
+    }
 
     return retval;
 }
