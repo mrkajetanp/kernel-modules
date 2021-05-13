@@ -70,6 +70,7 @@ int scull_trim(struct scull_dev *dev)
         next = dptr->next;
         kfree(dptr);
     }
+
     dev->size = 0;
     dev->quantum = scull_quantum;
     dev->qset = scull_qset;
@@ -484,9 +485,35 @@ long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     return retval;
 }
 
+loff_t scull_llseek(struct file *filp, loff_t off, int whence)
+{
+    struct scull_dev *dev = filp->private_data;
+    loff_t newpos;
+
+    switch (whence) {
+        case 0: /* SEEK_SET */
+            newpos = off;
+            break;
+
+        case 1: /* SEEK_CUR */
+            newpos = filp->f_pos + off;
+            break;
+
+        case 2: /* SEEK_END */
+            newpos = dev->size + off;
+            break;
+
+        default: /* can't happen */
+            return -EINVAL;
+    }
+    if (newpos < 0) return -EINVAL;
+    filp->f_pos = newpos;
+    return newpos;
+}
+
 struct file_operations scull_fops = {
     .owner = THIS_MODULE,
-    .llseek = NULL,
+    .llseek = scull_llseek,
     .read = scull_read,
     .write = scull_write,
     .unlocked_ioctl = scull_ioctl,
@@ -508,7 +535,9 @@ void scull_cleanup_module(void)
         kfree(scull_devices);
    }
 
+#ifdef SCULL_DEBUG
     scull_remove_proc();
+#endif
 
     /* cleanup_module never called if registering failed */
     unregister_chrdev_region(devno, scull_nr_devs);
@@ -544,7 +573,7 @@ int scull_init_module(void)
         return result;
     }
 
-    /* allocate the devices */
+    /* allocate devices */
     scull_devices = kmalloc(scull_nr_devs * sizeof(struct scull_dev), GFP_KERNEL);
     if (!scull_devices) {
         result = -ENOMEM;
@@ -560,8 +589,9 @@ int scull_init_module(void)
         scull_setup_cdev(&scull_devices[i], i);
     }
 
+#ifdef SCULL_DEBUG
     scull_create_proc();
-
+#endif
     return 0;
 
     fail:
