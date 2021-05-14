@@ -48,6 +48,8 @@
 .tmp_versions/
 modules.order
 .ccls-cache/
+.cache/
+.vim/
 Module.symvers
 Mkfile.old
 dkms.conf

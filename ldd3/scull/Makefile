@@ -13,7 +13,7 @@ EXTRA_CFLAGS += -I$(LDDINC)
 
 ifneq ($(KERNELRELEASE),)
 
-scull-objs := main.o
+scull-objs := main.o pipe.o
 obj-m := scull.o
 
 else
@@ -27,4 +27,4 @@ modules:
 endif
 
 clean:
-	rm -rf *.o *.mod *.mod.c *.ko modules.order *.symvers
+	rm -rf *.o *.mod *.mod.c *.ko modules.order *.symvers *.out

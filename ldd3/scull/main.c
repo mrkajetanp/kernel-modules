@@ -541,6 +541,9 @@ void scull_cleanup_module(void)
 
     /* cleanup_module never called if registering failed */
     unregister_chrdev_region(devno, scull_nr_devs);
+
+    /* cleanup friendly devices */
+    scull_p_cleanup();
 }
 
 static void scull_setup_cdev(struct scull_dev *dev, int index)
@@ -588,6 +591,10 @@ int scull_init_module(void)
         mutex_init(&scull_devices[i].lock);
         scull_setup_cdev(&scull_devices[i], i);
     }
+
+    dev = MKDEV(scull_major, scull_minor + scull_nr_devs);
+    dev += scull_p_init(dev);
+
 
 #ifdef SCULL_DEBUG
     scull_create_proc();
