@@ -93,8 +93,8 @@ struct scull_dev {
 };
 
 /*
-** Configurable parameters
-*/
+ * Configurable parameters
+ */
 
 extern int scull_major;
 extern int scull_nr_devs;
@@ -104,11 +104,13 @@ extern int scull_qset;
 extern int scull_p_buffer;
 
 /*
-** Prototypes for shared functions
+ * Prototypes for shared functions
  */
 
 int  scull_p_init(dev_t dev);
 void scull_p_cleanup(void);
+int  scull_access_init(dev_t dev);
+void scull_access_cleanup(void);
 
 
 int scull_trim(struct scull_dev *dev);
@@ -120,7 +122,7 @@ long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 loff_t scull_llseek(struct file *filp, loff_t off, int whence);
 
 /*
-** Ioctl definitions
+ * Ioctl definitions
  */
 
 #define SCULL_IOC_MAGIC 'j'
