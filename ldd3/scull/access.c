@@ -81,6 +81,19 @@ struct file_operations scull_sngl_fops = {
  * The 'cloned' private device
  */
 
+struct scull_listitem {
+    struct scull_dev device;
+    dev_t key;
+    struct list_head list;
+};
+
+/* list of devices and a lock */
+static LIST_HEAD(scull_c_list);
+static DEFINE_SPINLOCK(scull_c_lock);
+
+/* placeholder scull_dev holding cdev things */
+static struct scull_dev scull_c_device;
+
 
 /*************************************************************************
  * init and clenup functions
@@ -101,7 +114,26 @@ static struct scull_adev_info {
  */
 static void scull_access_setup(dev_t devno, struct scull_adev_info *devinfo)
 {
-    /* TODO: implement */
+    struct scull_dev *dev = devinfo->sculldev;
+    int err;
+
+    /* intialise the device structure */
+    dev->quantum = scull_quantum;
+    dev->qset = scull_qset;
+    mutex_init(&dev->lock);
+
+    /* cdev things */
+    cdev_init(&dev->cdev, devinfo->fops);
+    kobject_set_name(&dev->cdev.kobj, devinfo->name);
+    dev->cdev.owner = THIS_MODULE;
+    err = cdev_add(&dev->cdev, devno, 1);
+    /* handle potential failure */
+    if (err) {
+        printk(KERN_NOTICE "Error %d adding %s\n", err, devinfo->name);
+        kobject_put(&dev->cdev.kobj);
+    } else {
+        printk(KERN_NOTICE "%s registered at %x\n", devinfo->name, devno);
+    }
 }
 
 int scull_access_init(dev_t firstdev)
@@ -124,7 +156,24 @@ int scull_access_init(dev_t firstdev)
 
 void scull_access_cleanup(void)
 {
-    /* TODO: implement */
+    struct scull_listitem *lptr, *next;
+    int i;
+
+    /* clean up the static devices */
+    for (i = 0; i < SCULL_N_ADEVS; i++) {
+        struct scull_dev *dev = scull_access_devs[i].sculldev;
+        cdev_del(&dev->cdev);
+        scull_trim(scull_access_devs[i].sculldev);
+    }
+
+    /* all the cloned devices */
+    list_for_each_entry_safe(lptr, next, &scull_c_list, list) {
+        list_del(&lptr->list);
+        scull_trim(&(lptr->device));
+        kfree(lptr);
+    }
+
+    unregister_chrdev_region(scull_a_firstdev, SCULL_N_ADEVS);
     return;
 }
 
